@@ -13,14 +13,20 @@ const container = ref(null);
 let layer, rect1, rect2, line;
 
 // 矩形移动事件
+let cacheStartPoint = null;
+let cacheEndPoint = null;
 const onDragMove = () => {
   // 计算出所有可能的点
-  let { startPoint, endPoint, points } = computedProbablyPoints();
+  let { startPoint, endPoint, fakeStartPoint, fakeEndPoint, points } =
+    computedProbablyPoints();
+  // 将真正的起终点保存到全局作用域，方便其他方法引用
+  cacheStartPoint = startPoint;
+  cacheEndPoint = endPoint;
   // 使用回溯算法找出其中一条路径
-  const routes = useDFS(startPoint, endPoint, points);
+  const routes = useDFS(fakeStartPoint, fakeEndPoint, points);
   // 更新连线元素
   line.points(
-    routes.reduce((path, cur) => {
+    [startPoint, ...routes, endPoint].reduce((path, cur) => {
       path.push(cur[0], cur[1]);
       return path;
     }, [])
@@ -35,7 +41,7 @@ const useDFS = (startPoint, endPoint, points) => {
     for (let i = 0; i < selects.length; i++) {
       let cur = selects[i];
       // 到达终点了
-      if (cur[0] === endPoint[0] && cur[1] === endPoint[1]) {
+      if (checkIsSamePoint(cur, endPoint)) {
         res = [...path, cur];
         break;
       }
@@ -45,7 +51,7 @@ const useDFS = (startPoint, endPoint, points) => {
         continue;
       }
       used[key] = true;
-      track([...path, cur], getNextPoints(cur[0], cur[1], points));
+      track([...path, cur], getNextPoints(cur, points));
       used[key] = false;
     }
   };
@@ -83,7 +89,8 @@ const computedProbablyPoints = () => {
   points.push(...startBoundingBox);
 
   // 经过起点且垂直于起点元素包围框的线与包围框线的交点
-  points.push([startPoint[0], rect1Y - MIN_DISTANCE]);
+  let fakeStartPoint = [startPoint[0], rect1Y - MIN_DISTANCE];
+  points.push(fakeStartPoint);
 
   // 终点元素保包围框上的四个顶点
   let endBoundingBox = [
@@ -95,7 +102,8 @@ const computedProbablyPoints = () => {
   points.push(...endBoundingBox);
 
   // 经过终点且垂直于终点元素包围框的线与包围框线的交点
-  points.push([endPoint[0], rect2Y - MIN_DISTANCE]);
+  let fakeEndPoint = [endPoint[0], rect2Y - MIN_DISTANCE];
+  points.push(fakeEndPoint);
 
   // 两个包围框组成的更大的包围框的四个顶点
   let boundingBoxXList = [];
@@ -190,29 +198,28 @@ const computedProbablyPoints = () => {
   return {
     startPoint,
     endPoint,
+    fakeStartPoint,
+    fakeEndPoint,
     points,
-    minBoundingBoxX,
-    minBoundingBoxY,
-    maxBoundingBoxX,
-    maxBoundingBoxY,
   };
 };
 
 // 找出一个点周边的点
-const getNextPoints = (x, y, points) => {
+const getNextPoints = (point, points) => {
+  let [x, y] = point;
   let xSamePoints = [];
   let ySamePoints = [];
 
   // 找出x或y坐标相同的点
-  points.forEach((point) => {
-    if (point[0] === x && point[1] === y) {
+  points.forEach((item) => {
+    if (checkIsSamePoint(point, item)) {
       return;
     }
-    if (point[0] === x) {
-      xSamePoints.push(point);
+    if (item[0] === x) {
+      xSamePoints.push(item);
     }
-    if (point[1] === y) {
-      ySamePoints.push(point);
+    if (item[1] === y) {
+      ySamePoints.push(item);
     }
   });
 
@@ -221,7 +228,8 @@ const getNextPoints = (x, y, points) => {
 
   // 找出y方向最近的点
   let yNextPoints = getNextPoint(x, ySamePoints, 0);
-  return [...xNextPoints, ...yNextPoints];
+
+  return [...yNextPoints, ...xNextPoints];
 };
 
 // 找出水平或垂直方向上最近的点
@@ -251,9 +259,30 @@ const getNextPoint = (value, list, index) => {
       }
     }
   }
+  // 如果下一个点是起点或终点，那么直接忽略掉
+  if (
+    checkIsSamePoint(nextLeftTopPoint, cacheStartPoint) ||
+    checkIsSamePoint(nextLeftTopPoint, cacheEndPoint)
+  ) {
+    nextLeftTopPoint = null;
+  }
+  if (
+    checkIsSamePoint(nextRIghtBottomPoint, cacheStartPoint) ||
+    checkIsSamePoint(nextRIghtBottomPoint, cacheEndPoint)
+  ) {
+    nextRIghtBottomPoint = null;
+  }
   return [nextLeftTopPoint, nextRIghtBottomPoint].filter((point) => {
     return !!point;
   });
+};
+
+// 检测是否为同一个点
+const checkIsSamePoint = (a, b) => {
+  if (!a || !b) {
+    return false;
+  }
+  return a[0] === b[0] && a[1] === b[1];
 };
 
 // 检查一个点是否存在于列表中
