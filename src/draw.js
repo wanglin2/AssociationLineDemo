@@ -23,7 +23,7 @@ export const init = (container, onDragMove) => {
     width: 100,
     height: 100,
     fill: "#fbfbfb",
-    stroke: "black",
+    stroke: "#f56c6c",
     strokeWidth: 4,
     draggable: true,
   });
@@ -34,7 +34,7 @@ export const init = (container, onDragMove) => {
     width: 100,
     height: 100,
     fill: "#fbfbfb",
-    stroke: "black",
+    stroke: "#409eff",
     strokeWidth: 4,
     draggable: true,
   });
@@ -51,7 +51,7 @@ export const init = (container, onDragMove) => {
 
   line = new Konva.Line({
     points: [],
-    stroke: "green",
+    stroke: "#e6a23c",
     strokeWidth: 2,
     lineJoin: "round",
   });
