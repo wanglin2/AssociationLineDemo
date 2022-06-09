@@ -24,6 +24,7 @@ export default class AStar {
     ];
     this.closeList = [];
     while (this.openList.length) {
+      // 在openList中找出优先级最高的点
       let point = this.getBestPoint();
       if (!point) {
         return [];
@@ -47,10 +48,12 @@ export default class AStar {
             // 如果该点也不在openList中
             let pointObj = {
               point: cur,
-              parent: point,
+              parent: point,// 设置point为当前点的父节点
               cost: 0,
             };
+            // 计算当前点的代价
             this.computeCost(pointObj);
+            // 添加到openList中
             this.openList.push(pointObj);
           }
         }
@@ -116,7 +119,7 @@ export default class AStar {
     return res;
   }
 
-  // 计算代价h(n)
+  // 计算代价h(n)，曼哈顿距离
   computedHCost(point) {
     return (
       Math.abs(this.endPoint[0] - point.point[0]) +

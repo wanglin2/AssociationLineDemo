@@ -14,7 +14,8 @@ export const setRect = (r1, r2) => {
 };
 
 // 计算所有可能经过的点
-export const computedProbablyPoints = () => {
+export const computedProbablyPoints = (startPos, endPos) => {
+  // 保存矩形的尺寸、位置信息
   rect1X = rect1.x();
   rect1Y = rect1.y();
   rect1W = rect1.width();
@@ -26,123 +27,106 @@ export const computedProbablyPoints = () => {
   rect2H = rect2.height();
 
   // 起终点
-  // startPoint = [rect1X + rect1W / 2, rect1Y];// 上
-  startPoint = [rect1X, rect1Y + rect1H / 2]; // 左
+  switch (startPos) {
+    case "left":
+      startPoint = [rect1X, rect1Y + rect1H / 2]; // 左
+      break;
+    case "top":
+      startPoint = [rect1X + rect1W / 2, rect1Y]; // 上
+      break;
+    case "right":
+      startPoint = [rect1X + rect1W, rect1Y + rect1H / 2]; // 右
+      break;
+    case "bottom":
+      startPoint = [rect1X + rect1W / 2, rect1Y + rect1H]; // 下
+      break;
+    default:
+      break;
+  }
 
-  // endPoint = [rect2X + rect2W / 2, rect2Y];// 上
-  endPoint = [rect2X, rect2Y + rect2H / 2]; // 左
-  // endPoint = [rect2X + rect2W, rect2Y + rect2H / 2]; // 右
-  // endPoint = [rect2X + rect2W / 2, rect2Y + rect2H];// 下
+  switch (endPos) {
+    case "left":
+      endPoint = [rect2X, rect2Y + rect2H / 2]; // 左
+      break;
+    case "top":
+      endPoint = [rect2X + rect2W / 2, rect2Y]; // 上
+      break;
+    case "right":
+      endPoint = [rect2X + rect2W, rect2Y + rect2H / 2]; // 右
+      break;
+    case "bottom":
+      endPoint = [rect2X + rect2W / 2, rect2Y + rect2H]; // 下
+      break;
+    default:
+      break;
+  }
 
   // 保存所有可能经过的点
-  let points = [startPoint, endPoint];
+  let points = [];
 
-  // 起点元素包围框上的四个顶点
-  let startBoundingBox = [
-    [rect1X - MIN_DISTANCE, rect1Y - MIN_DISTANCE], // 左上
-    [rect1X + rect1W + MIN_DISTANCE, rect1Y - MIN_DISTANCE], // 右上
-    [rect1X - MIN_DISTANCE, rect1Y + rect1H + MIN_DISTANCE], // 左下
-    [rect1X + rect1W + MIN_DISTANCE, rect1Y + rect1H + MIN_DISTANCE], // 右下
-  ];
-  points.push(...startBoundingBox);
-
-  // 经过起点且垂直于起点元素包围框的线与包围框线的交点
+  // 伪起点：经过起点且垂直于起点所在边的线与包围框线的交点
   let fakeStartPoint = findStartNextOrEndPrePoint(rect1, startPoint);
   points.push(fakeStartPoint);
 
-  // 终点元素保包围框上的四个顶点
-  let endBoundingBox = [
-    [rect2X - MIN_DISTANCE, rect2Y - MIN_DISTANCE], // 左上
-    [rect2X + rect2W + MIN_DISTANCE, rect2Y - MIN_DISTANCE], // 右上
-    [rect2X - MIN_DISTANCE, rect2Y + rect2H + MIN_DISTANCE], // 左下
-    [rect2X + rect2W + MIN_DISTANCE, rect2Y + rect2H + MIN_DISTANCE], // 右下
-  ];
-  points.push(...endBoundingBox);
-
-  // 经过终点且垂直于终点元素包围框的线与包围框线的交点
+  // 伪终点：经过终点且垂直于终点所在边的线与包围框线的交点
   let fakeEndPoint = findStartNextOrEndPrePoint(rect2, endPoint);
   points.push(fakeEndPoint);
 
-  // 两个包围框组成的更大的包围框的四个顶点
-  let boundingBoxXList = [];
-  let boundingBoxYList = [];
-  [...startBoundingBox, ...endBoundingBox].forEach((item) => {
-    boundingBoxXList.push(item[0]);
-    boundingBoxYList.push(item[1]);
-  });
-  let minBoundingBoxX = Math.min(...boundingBoxXList);
-  let minBoundingBoxY = Math.min(...boundingBoxYList);
-  let maxBoundingBoxX = Math.max(...boundingBoxXList);
-  let maxBoundingBoxY = Math.max(...boundingBoxYList);
+  // 经过起点且垂直于起点所在边的线 与 经过终点且垂直于终点所在边的线 的交点
+  let startEndPointVerticalLineIntersection = getIntersection(
+    [startPoint, fakeStartPoint],
+    [endPoint, fakeEndPoint]
+  );
+  startEndPointVerticalLineIntersection &&
+    points.push(startEndPointVerticalLineIntersection);
+
+  // 当 经过起点且垂直于起点所在边的线 与 经过终点且垂直于终点所在边的线 平行时，计算一条垂直线与经过另一个点的伪点的水平线 的节点
+  if (!startEndPointVerticalLineIntersection) {
+    let p1 = getIntersection(
+      [startPoint, fakeStartPoint], // 假设经过起点的垂直线是垂直的
+      [fakeEndPoint, [fakeEndPoint[0] + 10, fakeEndPoint[1]]] // 那么就要计算经过伪终点的水平线。水平线上的点y坐标相同，所以x坐标随便加减多少数值都可以
+    );
+    p1 && points.push(p1);
+    let p2 = getIntersection(
+      [startPoint, fakeStartPoint], // 假设经过起点的垂直线是水平的
+      [fakeEndPoint, [fakeEndPoint[0], fakeEndPoint[1] + 10]] // 那么就要计算经过伪终点的垂直线。
+    );
+    p2 && points.push(p2);
+    // 下面同上
+    let p3 = getIntersection(
+      [endPoint, fakeEndPoint],
+      [fakeStartPoint, [fakeStartPoint[0] + 10, fakeStartPoint[1]]]
+    );
+    p3 && points.push(p3);
+    let p4 = getIntersection(
+      [endPoint, fakeEndPoint],
+      [fakeStartPoint, [fakeStartPoint[0], fakeStartPoint[1] + 10]]
+    );
+    p4 && points.push(p4);
+  }
+
+  // 伪起点和伪终点形成的矩形 和 起点元素包围框 组成一个大矩形 的四个顶点
   points.push(
-    [minBoundingBoxX, minBoundingBoxY],
-    [maxBoundingBoxX, minBoundingBoxY],
-    [minBoundingBoxX, maxBoundingBoxY],
-    [maxBoundingBoxX, maxBoundingBoxY]
+    ...getBoundingBox([
+      // 伪起点终点
+      fakeStartPoint,
+      fakeEndPoint,
+      // 起点元素包围框
+      [rect1X - MIN_DISTANCE, rect1Y - MIN_DISTANCE], // 左上顶点
+      [rect1X + rect1W + MIN_DISTANCE, rect1Y + rect1H + MIN_DISTANCE], // 右下顶点
+    ])
   );
 
-  // 起点元素包围框两条水平边的延长线与大包围框的交点
+  // 伪起点和伪终点形成的矩形 和 终点元素包围框 组成一个大矩形 的四个顶点
   points.push(
-    [minBoundingBoxX, startBoundingBox[0][1]],
-    [maxBoundingBoxX, startBoundingBox[0][1]],
-    [minBoundingBoxX, startBoundingBox[2][1]],
-    [maxBoundingBoxX, startBoundingBox[2][1]]
-  );
-
-  // 起点元素包围框两条垂直边的延长线与大包围框的交点
-  points.push(
-    [startBoundingBox[0][0], minBoundingBoxY],
-    [startBoundingBox[0][0], maxBoundingBoxY],
-    [startBoundingBox[1][0], minBoundingBoxY],
-    [startBoundingBox[1][0], maxBoundingBoxY]
-  );
-
-  // 终点元素包围框两条水平边的延长线与大包围框的交点
-  points.push(
-    [minBoundingBoxX, endBoundingBox[0][1]],
-    [maxBoundingBoxX, endBoundingBox[0][1]],
-    [minBoundingBoxX, endBoundingBox[2][1]],
-    [maxBoundingBoxX, endBoundingBox[2][1]]
-  );
-
-  // 终点元素包围框两条垂直边的延长线与大包围框的交点
-  points.push(
-    [endBoundingBox[0][0], minBoundingBoxY],
-    [endBoundingBox[0][0], maxBoundingBoxY],
-    [endBoundingBox[1][0], minBoundingBoxY],
-    [endBoundingBox[1][0], maxBoundingBoxY]
-  );
-
-  // 起点包围框的水平边的延长线与终点包围框的垂直边的延长线的交点
-  points.push(
-    [startBoundingBox[0][0], endBoundingBox[0][1]],
-    [startBoundingBox[1][0], endBoundingBox[0][1]],
-    [startBoundingBox[0][0], endBoundingBox[2][1]],
-    [startBoundingBox[1][0], endBoundingBox[2][1]]
-  );
-
-  // 起点包围框的垂直边的延长线与终点包围框的水平边的延长线的交点
-  points.push(
-    [endBoundingBox[0][0], startBoundingBox[0][1]],
-    [endBoundingBox[0][0], startBoundingBox[2][1]],
-    [endBoundingBox[1][0], startBoundingBox[0][1]],
-    [endBoundingBox[1][0], startBoundingBox[2][1]]
-  );
-
-  // 经过起点的垂直线与包围框所有水平边延长线的交点
-  points.push(
-    [startPoint[0], startBoundingBox[0][1]],
-    [startPoint[0], startBoundingBox[2][1]],
-    [startPoint[0], endBoundingBox[0][1]],
-    [startPoint[0], endBoundingBox[2][1]]
-  );
-
-  // 经过终点的垂直线与包围框所有水平边延长线的交点
-  points.push(
-    [endPoint[0], startBoundingBox[0][1]],
-    [endPoint[0], startBoundingBox[2][1]],
-    [endPoint[0], endBoundingBox[0][1]],
-    [endPoint[0], endBoundingBox[2][1]]
+    ...getBoundingBox([
+      // 伪起点终点
+      fakeStartPoint,
+      fakeEndPoint,
+      // 终点元素包围框
+      [rect2X - MIN_DISTANCE, rect2Y - MIN_DISTANCE], // 左上顶点
+      [rect2X + rect2W + MIN_DISTANCE, rect2Y + rect2H + MIN_DISTANCE], // 右下顶点
+    ])
   );
 
   // 去重
@@ -155,6 +139,46 @@ export const computedProbablyPoints = () => {
     fakeEndPoint,
     points,
   };
+};
+
+// 检查一个点是否在一条线段上
+export const checkPointIsInSegment = (point, seg) => {
+  if (point[0] === seg[0][0]) {
+    if (
+      point[1] >= Math.min(seg[0][1], seg[1][1]) &&
+      point[1] <= Math.max(seg[0][1], seg[1][1])
+    ) {
+      return true;
+    }
+  } else if (point[1] === seg[0][1]) {
+    if (
+      point[0] >= Math.min(seg[0][0], seg[1][0]) &&
+      point[0] <= Math.max(seg[0][0], seg[1][0])
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// 计算两条线段的交点
+export const getIntersection = (seg1, seg2) => {
+  // 两条垂直线不会相交
+  if (seg1[0][0] === seg1[1][0] && seg2[0][0] === seg2[1][0]) {
+    return null;
+  }
+  // 两条水平线不会相交
+  if (seg1[0][1] === seg1[1][1] && seg2[0][1] === seg2[1][1]) {
+    return null;
+  }
+  // seg1是水平线、seg2是垂直线
+  if (seg1[0][1] === seg1[1][1] && seg2[0][0] === seg2[1][0]) {
+    return [seg2[0][0], seg1[0][1]];
+  }
+  // seg1是垂直线、seg2是水平线
+  if (seg1[0][0] === seg1[1][0] && seg2[0][1] === seg2[1][1]) {
+    return [seg1[0][0], seg2[0][1]];
+  }
 };
 
 // 找出起点的下一个点或终点的前一个点
@@ -180,6 +204,26 @@ export const findStartNextOrEndPrePoint = (rect, point) => {
   }
 };
 
+// 计算出给定点可以形成的最大的矩形的四个顶点
+export const getBoundingBox = (points) => {
+  let boundingBoxXList = [];
+  let boundingBoxYList = [];
+  points.forEach((item) => {
+    boundingBoxXList.push(item[0]);
+    boundingBoxYList.push(item[1]);
+  });
+  let minBoundingBoxX = Math.min(...boundingBoxXList);
+  let minBoundingBoxY = Math.min(...boundingBoxYList);
+  let maxBoundingBoxX = Math.max(...boundingBoxXList);
+  let maxBoundingBoxY = Math.max(...boundingBoxYList);
+  return [
+    [minBoundingBoxX, minBoundingBoxY],
+    [maxBoundingBoxX, minBoundingBoxY],
+    [minBoundingBoxX, maxBoundingBoxY],
+    [maxBoundingBoxX, maxBoundingBoxY],
+  ];
+};
+
 // 找出一个点周边的点
 export const getNextPoints = (point, points) => {
   let [x, y] = point;
@@ -188,6 +232,7 @@ export const getNextPoints = (point, points) => {
 
   // 找出x或y坐标相同的点
   points.forEach((item) => {
+    // 跳过目标点
     if (checkIsSamePoint(point, item)) {
       return;
     }
@@ -200,24 +245,24 @@ export const getNextPoints = (point, points) => {
   });
 
   // 找出x方向最近的点
-  let xNextPoints = getNextPoint(x, y, xSamePoints, "y");
+  let xNextPoints = getNextPoint(x, y, ySamePoints, "x");
 
   // 找出y方向最近的点
-  let yNextPoints = getNextPoint(x, y, ySamePoints, "x");
+  let yNextPoints = getNextPoint(x, y, xSamePoints, "y");
 
-  return [...yNextPoints, ...xNextPoints];
+  return [...xNextPoints, ...yNextPoints];
 };
 
 // 找出水平或垂直方向上最近的点
 export const getNextPoint = (x, y, list, dir) => {
-  let index = dir === "x" ? 0 : 1;
+  let index = dir === "x" ? 0 : 1;// 求水平方向上最近的点，那么它们y坐标都是相同的，要比较x坐标，反之亦然
   let value = dir === "x" ? x : y;
   let nextLeftTopPoint = null;
   let nextRIghtBottomPoint = null;
   for (let i = 0; i < list.length; i++) {
     let cur = list[i];
-    // 检查垂直线是否穿过元素或离元素太近
-    if (checkLineThroughOrClose([x, y], cur)) {
+    // 检查当前点和目标点的连线是否穿过起终点元素
+    if (checkLineThroughElements([x, y], cur)) {
       continue;
     }
     // 左侧或上方最近的点
@@ -241,26 +286,13 @@ export const getNextPoint = (x, y, list, dir) => {
       }
     }
   }
-  // 如果下一个点是起点或终点，那么直接忽略掉
-  if (
-    checkIsSamePoint(nextLeftTopPoint, startPoint) ||
-    checkIsSamePoint(nextLeftTopPoint, endPoint)
-  ) {
-    nextLeftTopPoint = null;
-  }
-  if (
-    checkIsSamePoint(nextRIghtBottomPoint, startPoint) ||
-    checkIsSamePoint(nextRIghtBottomPoint, endPoint)
-  ) {
-    nextRIghtBottomPoint = null;
-  }
   return [nextLeftTopPoint, nextRIghtBottomPoint].filter((point) => {
     return !!point;
   });
 };
 
-// 检查直线是否穿过元素或离元素太近
-export const checkLineThroughOrClose = (a, b) => {
+// 检查两个点组成的线段是否穿过起终点元素
+export const checkLineThroughElements = (a, b) => {
   let rects = [rect1, rect2];
   let minX = Math.min(a[0], b[0]);
   let maxX = Math.max(a[0], b[0]);
