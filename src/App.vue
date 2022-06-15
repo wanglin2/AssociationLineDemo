@@ -51,20 +51,43 @@ const reRender = () => {
   onDragMove();
 };
 
-// 矩形移动事件
-const onDragMove = () => {
+// 计算路径
+const computeRoutes = (easy) => {
   // 计算出所有可能的点
   let { startPoint, endPoint, fakeStartPoint, fakeEndPoint, points } =
-    computedProbablyPoints(startPos.value, endPos.value);
+    computedProbablyPoints(startPos.value, endPos.value, easy);
   // 绘制辅助点
   drawTestDots(points);
   let routes = [];
   if (userAStar.value) {
     // 使用A*算法
-    routes = aStar.start(fakeStartPoint, fakeEndPoint, points);
+    routes = aStar.start(
+      easy ? startPoint : fakeStartPoint,
+      easy ? endPoint : fakeEndPoint,
+      points
+    );
   } else {
     // 使用回溯算法找出其中一条路径
-    routes = useDFS(fakeStartPoint, fakeEndPoint, points);
+    routes = useDFS(
+      easy ? startPoint : fakeStartPoint,
+      easy ? endPoint : fakeEndPoint,
+      points
+    );
+  }
+  return {
+    startPoint,
+    endPoint,
+    routes,
+  };
+};
+
+// 矩形移动事件
+const onDragMove = () => {
+  let { startPoint, endPoint, routes } = computeRoutes();
+  // 如果没有计算出来路径，那么就以宽松模式再计算一次可能的点，也就是允许和元素交叉
+  if (routes.length <= 0) {
+    let res = computeRoutes(true);
+    routes = res.routes;
   }
   // 更新连线元素
   updateLine(

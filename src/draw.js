@@ -16,6 +16,15 @@ export const init = (container, onDragMove) => {
   // 创建图层
   layer = new Konva.Layer();
 
+  line = new Konva.Line({
+    points: [],
+    stroke: "#e6a23c",
+    strokeWidth: 2,
+    lineJoin: "round",
+  });
+
+  layer.add(line);
+
   // 创建两个矩形
   let rect1 = new Konva.Rect({
     x: 400,
@@ -48,15 +57,6 @@ export const init = (container, onDragMove) => {
   layer.add(rect1);
 
   layer.add(rect2);
-
-  line = new Konva.Line({
-    points: [],
-    stroke: "#e6a23c",
-    strokeWidth: 2,
-    lineJoin: "round",
-  });
-
-  layer.add(line);
 
   // 图层添加到舞台
   stage.add(layer);
