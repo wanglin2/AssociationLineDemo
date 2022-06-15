@@ -6,6 +6,7 @@ let rect1,
 let rect1X, rect1Y, rect1W, rect1H, rect2X, rect2Y, rect2W, rect2H;
 
 const MIN_DISTANCE = 30;
+let easyMode = false;
 
 // 保存矩形元素
 export const setRect = (r1, r2) => {
@@ -14,7 +15,7 @@ export const setRect = (r1, r2) => {
 };
 
 // 计算所有可能经过的点
-export const computedProbablyPoints = (startPos, endPos) => {
+export const computedProbablyPoints = (startPos, endPos, easy) => {
   // 保存矩形的尺寸、位置信息
   rect1X = rect1.x();
   rect1Y = rect1.y();
@@ -26,43 +27,19 @@ export const computedProbablyPoints = (startPos, endPos) => {
   rect2W = rect2.width();
   rect2H = rect2.height();
 
-  // 起终点
-  switch (startPos) {
-    case "left":
-      startPoint = [rect1X, rect1Y + rect1H / 2]; // 左
-      break;
-    case "top":
-      startPoint = [rect1X + rect1W / 2, rect1Y]; // 上
-      break;
-    case "right":
-      startPoint = [rect1X + rect1W, rect1Y + rect1H / 2]; // 右
-      break;
-    case "bottom":
-      startPoint = [rect1X + rect1W / 2, rect1Y + rect1H]; // 下
-      break;
-    default:
-      break;
-  }
+  // 设置起终点坐标
+  setStartEndPos(startPos, endPos);
 
-  switch (endPos) {
-    case "left":
-      endPoint = [rect2X, rect2Y + rect2H / 2]; // 左
-      break;
-    case "top":
-      endPoint = [rect2X + rect2W / 2, rect2Y]; // 上
-      break;
-    case "right":
-      endPoint = [rect2X + rect2W, rect2Y + rect2H / 2]; // 右
-      break;
-    case "bottom":
-      endPoint = [rect2X + rect2W / 2, rect2Y + rect2H]; // 下
-      break;
-    default:
-      break;
-  }
+  // 是否是宽松模式
+  easyMode = easy;
 
   // 保存所有可能经过的点
   let points = [];
+
+  // 宽松模式则把真正的起点和终点加入点列表中
+  if (easy) {
+    points.push(startPoint, endPoint);
+  }
 
   // 伪起点：经过起点且垂直于起点所在边的线与包围框线的交点
   let fakeStartPoint = findStartNextOrEndPrePoint(rect1, startPoint);
@@ -139,6 +116,44 @@ export const computedProbablyPoints = (startPos, endPos) => {
     fakeEndPoint,
     points,
   };
+};
+
+// 设置起终点坐标
+export const setStartEndPos = (startPos, endPos) => {
+  // 起终点
+  switch (startPos) {
+    case "left":
+      startPoint = [rect1X, rect1Y + rect1H / 2]; // 左
+      break;
+    case "top":
+      startPoint = [rect1X + rect1W / 2, rect1Y]; // 上
+      break;
+    case "right":
+      startPoint = [rect1X + rect1W, rect1Y + rect1H / 2]; // 右
+      break;
+    case "bottom":
+      startPoint = [rect1X + rect1W / 2, rect1Y + rect1H]; // 下
+      break;
+    default:
+      break;
+  }
+
+  switch (endPos) {
+    case "left":
+      endPoint = [rect2X, rect2Y + rect2H / 2]; // 左
+      break;
+    case "top":
+      endPoint = [rect2X + rect2W / 2, rect2Y]; // 上
+      break;
+    case "right":
+      endPoint = [rect2X + rect2W, rect2Y + rect2H / 2]; // 右
+      break;
+    case "bottom":
+      endPoint = [rect2X + rect2W / 2, rect2Y + rect2H]; // 下
+      break;
+    default:
+      break;
+  }
 };
 
 // 检查一个点是否在一条线段上
@@ -255,14 +270,14 @@ export const getNextPoints = (point, points) => {
 
 // 找出水平或垂直方向上最近的点
 export const getNextPoint = (x, y, list, dir) => {
-  let index = dir === "x" ? 0 : 1;// 求水平方向上最近的点，那么它们y坐标都是相同的，要比较x坐标，反之亦然
+  let index = dir === "x" ? 0 : 1; // 求水平方向上最近的点，那么它们y坐标都是相同的，要比较x坐标，反之亦然
   let value = dir === "x" ? x : y;
   let nextLeftTopPoint = null;
   let nextRIghtBottomPoint = null;
   for (let i = 0; i < list.length; i++) {
     let cur = list[i];
-    // 检查当前点和目标点的连线是否穿过起终点元素
-    if (checkLineThroughElements([x, y], cur)) {
+    // 检查当前点和目标点的连线是否穿过起终点元素，宽松模式下直接跳过该检测
+    if (!easyMode && checkLineThroughElements([x, y], cur)) {
       continue;
     }
     // 左侧或上方最近的点
@@ -304,10 +319,10 @@ export const checkLineThroughElements = (a, b) => {
     for (let i = 0; i < rects.length; i++) {
       let rect = rects[i];
       if (
-        minY >= rect.y() &&
-        minY <= rect.y() + rect.height() &&
-        minX <= rect.x() + rect.width() &&
-        maxX >= rect.x()
+        minY > rect.y() - MIN_DISTANCE &&
+        minY < rect.y() + rect.height() + MIN_DISTANCE &&
+        minX < rect.x() + rect.width() + MIN_DISTANCE &&
+        maxX > rect.x() - MIN_DISTANCE
       ) {
         return true;
       }
@@ -317,10 +332,10 @@ export const checkLineThroughElements = (a, b) => {
     for (let i = 0; i < rects.length; i++) {
       let rect = rects[i];
       if (
-        minX >= rect.x() &&
-        minX <= rect.x() + rect.width() &&
-        minY <= rect.y() + rect.height() &&
-        maxY >= rect.y()
+        minX > rect.x() - MIN_DISTANCE &&
+        minX < rect.x() + rect.width() + MIN_DISTANCE &&
+        minY < rect.y() + rect.height() + MIN_DISTANCE &&
+        maxY > rect.y() - MIN_DISTANCE
       ) {
         return true;
       }
